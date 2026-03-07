@@ -22,19 +22,37 @@ function extractText() {
    Prevents Gemini quota waste
 ================================= */
 
-// Wait for page to fully load
-setTimeout(() => {
-  if (document.visibilityState !== "visible") return;
+// Block AI analysis on useless sites
+const blockedSites = [
+  "google.com",
+  "youtube.com",
+  "gmail.com",
+  "twitter.com",
+  "x.com",
+  "facebook.com",
+  "instagram.com",
+];
 
-  const text = extractText();
+// Check if current site should be skipped
+const isBlocked = blockedSites.some((site) => location.hostname.includes(site));
 
-  if (!text || text.length < 2000) {
-    console.log("NeuroLens: Page too small for AI analysis");
-    return;
-  }
+if (isBlocked) {
+  console.log("NeuroLens: Skipping AI analysis on this site");
+} else {
+  // Wait for page to fully load
+  setTimeout(() => {
+    if (document.visibilityState !== "visible") return;
 
-  analyzePage();
-}, 4000);
+    const text = extractText();
+
+    if (!text || text.length < 2000) {
+      console.log("NeuroLens: Page too small for AI analysis");
+      return;
+    }
+
+    analyzePage();
+  }, 4000);
+}
 
 /* ================================
    PAGE ANALYSIS
@@ -115,6 +133,7 @@ function showSuggestionBanner(level, minutes) {
 
   document.body.appendChild(banner);
 
+  //TODO: Add button functionality
   document.getElementById("learn").onclick = rebuildPage;
   document.getElementById("sum").onclick = summarizePage;
   document.getElementById("simp").onclick = simplifyPage;
