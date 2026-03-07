@@ -98,6 +98,20 @@ async function analyzePage() {
 }
 
 /* ================================
+   READING TIME
+================================ */
+
+function estimateReadingTime(text) {
+
+    const words = text.split(/\s+/).length
+
+    const minutes = Math.ceil(words / 200)
+
+    return minutes
+
+}
+
+/* ================================
    SUGGESTION BANNER
 ================================ */
 
