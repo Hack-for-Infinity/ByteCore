@@ -1,22 +1,38 @@
 function sendAction(action) {
-
   chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-
     chrome.tabs.sendMessage(tabs[0].id, {
-      action: action
+      action: action,
     });
-
   });
-
 }
 
 // Adaptive Mode
 document.getElementById("adaptive").onclick = () => sendAction("ADAPTIVE");
 
 // Reading Modes
-document.getElementById("adhd").onclick = () => sendAction("ADHD");
-document.getElementById("dyslexia").onclick = () => sendAction("DYSLEXIA");
-document.getElementById("focus").onclick = () => sendAction("FOCUS");
+document.getElementById("adhd").onclick = () => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    chrome.tabs.sendMessage(tabs[0].id, { action: "ADHD" });
+  });
+};
+
+document.getElementById("dyslexia").onclick = () => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    chrome.tabs.sendMessage(tabs[0].id, { action: "DYSLEXIA" });
+  });
+};
+
+document.getElementById("focus").onclick = () => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    chrome.tabs.sendMessage(tabs[0].id, { action: "FOCUS" });
+  });
+};
+
+document.getElementById("reading").onclick = () => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    chrome.tabs.sendMessage(tabs[0].id, { action: "READ" });
+  });
+};
 
 // AI Tools
 document.getElementById("summarize").onclick = () => sendAction("SUMMARIZE");

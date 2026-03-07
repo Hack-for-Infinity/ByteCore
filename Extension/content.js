@@ -1,6 +1,12 @@
 let neurolensAnalyzed = false;
-
+let lastPageHash = null;
 let simplifiedCache = null;
+let adhdMode = false;
+let dyslexiaMode = false;
+let focusMode = false;
+let speech = null;
+let readingMode = false;
+let speaking = false;
 
 function extractText() {
   let text = "";
@@ -42,6 +48,11 @@ function getCacheKey(text) {
   return "neurolens_" + text.slice(0, 50);
 }
 
+const AI_LOADING = `
+<i>AI is analyzing this page...</i>
+<div style="margin-top:8px;font-size:12px;color:#888;">🧠 NeuroLens processing...</div>
+`;
+
 /* ===============================
    NeuroLens Smart Page Analysis
    Prevents Gemini quota waste
@@ -70,6 +81,15 @@ if (isBlocked) {
 
     const text = extractText();
 
+    const pageHash = text.slice(0, 500);
+
+    if (pageHash === lastPageHash) {
+      console.log("NeuroLens: duplicate page skipped");
+      return;
+    }
+
+    lastPageHash = pageHash;
+
     if (!text || text.length < 2000) {
       console.log("NeuroLens: Page too small for AI analysis");
       return;
@@ -78,6 +98,28 @@ if (isBlocked) {
     analyzePage();
   }, 4000);
 }
+
+/* ================================
+   ACCESSIBILITY MODES HANDLER
+================================ */
+
+chrome.runtime.onMessage.addListener((request) => {
+  if (request.action === "ADHD") {
+    enableADHDMode();
+  }
+
+  if (request.action === "DYSLEXIA") {
+    enableDyslexiaMode();
+  }
+
+  if (request.action === "FOCUS") {
+    enableFocusMode();
+  }
+
+  if (request.action === "READ") {
+    enableReadingMode();
+  }
+});
 
 /* ================================
    MESSAGE HANDLER (Popup actions)
@@ -97,6 +139,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 //window.addEventListener("load", analyzePage)
 
 async function analyzePage() {
+  if (document.getElementById("neurolens-panel")) return;
+
   if (neurolensAnalyzed) return;
   neurolensAnalyzed = true;
 
@@ -192,20 +236,28 @@ function showSuggestionBanner(level, minutes) {
 ================================ */
 
 async function summarizePage() {
-  const text = extractText();
+  showReadingPanel(AI_LOADING);
 
-  const res = await fetch("http://localhost:5000/api/reader/summarize", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+  try {
+    const text = extractText();
 
-    body: JSON.stringify({ text }),
-  });
+    const res = await fetch("http://localhost:5000/api/reader/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
 
-  const data = await res.json();
+    const data = await res.json();
 
-  showReadingPanel(formatAI(data.summary));
+    showReadingPanel(`
+            <h2>📄 Page Summary</h2>
+            ${formatAI(data.summary)}
+        `);
+  } catch (error) {
+    console.error("Summary error:", error);
+
+    showOverlay("AI summary failed.");
+  }
 }
 
 /* ================================
@@ -214,22 +266,19 @@ async function summarizePage() {
 
 async function simplifyPage() {
   if (simplifiedCache) {
-    document.body.innerHTML = simplifiedCache;
+    showReadingPanel(formatAI(simplifiedCache));
     return;
   }
+
+  showReadingPanel(AI_LOADING);
 
   try {
     const text = extractText();
 
     const res = await fetch("http://localhost:5000/api/reader/simplify", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-
-      body: JSON.stringify({
-        text: text.slice(0, 4000), // prevent huge pages
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text.slice(0, 4000) }),
     });
 
     const data = await res.json();
@@ -239,14 +288,11 @@ async function simplifyPage() {
       return;
     }
 
-    const formatted = formatAI(data.simple);
+    simplifiedCache = data.simple;
 
-    showReadingPanel(formatted);
-
-    simplifiedCache = formatted;
+    showReadingPanel(formatAI(data.simple));
   } catch (error) {
     console.error("Simplify error:", error);
-
     showOverlay("AI simplify failed.");
   }
 }
@@ -256,20 +302,32 @@ async function simplifyPage() {
 ================================ */
 
 async function rebuildPage() {
-  const text = extractText();
+  showReadingPanel(AI_LOADING);
 
-  const res = await fetch("http://localhost:5000/api/reader/rebuild", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+  try {
+    const text = extractText();
 
-    body: JSON.stringify({ text }),
-  });
+    const res = await fetch("http://localhost:5000/api/reader/rebuild", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
 
-  const data = await res.json();
+    const data = await res.json();
 
-  showReadingPanel(formatAI(data.rebuilt));
+    if (!data.rebuilt) {
+      showOverlay("AI learning mode unavailable.");
+      return;
+    }
+
+    showReadingPanel(`
+            <h2>🎓 Learning Mode</h2>
+            ${formatAI(data.rebuilt)}
+        `);
+  } catch (error) {
+    console.error("Learning mode error:", error);
+    showOverlay("AI learning mode failed.");
+  }
 }
 
 /* ================================
@@ -314,18 +372,25 @@ function openAssistant() {
 
   sidebar.innerHTML = `
 
-  <div style="background:#6366f1;color:white;padding:12px;font-weight:bold;display:flex;justify-content:space-between;">
-<span>AI Reading Assistant</span>
-<span id="closeAssistant" style="cursor:pointer;">✕</span>
-</div>
+    <div style="background:#6366f1;color:white;padding:12px;font-weight:bold;display:flex;justify-content:space-between;">
+        <span>AI Reading Assistant</span>
+        <span id="closeAssistant" style="cursor:pointer;">✕</span>
+    </div>
 
-  <div id="ai-messages" style="flex:1;padding:10px;overflow-y:auto;line-height:1.5;"></div>
+    <div id="ai-messages" style="flex:1;padding:10px;overflow-y:auto;line-height:1.5;"></div>
 
-  <input id="ai-input"
-  placeholder="Ask about this page..."
-  style="border:none;border-top:1px solid #ddd;padding:10px;" />
+    <div id="ai-suggestions" style="padding:10px;border-top:1px solid #eee;font-size:12px;">
+        <b>Suggested Questions</b>
+        <div class="suggestion">What is the main idea of this page?</div>
+        <div class="suggestion">Explain this topic in simple terms</div>
+        <div class="suggestion">What are the key takeaways?</div>
+    </div>
 
-  `;
+    <input id="ai-input"
+        placeholder="Ask about this page..."
+        style="border:none;border-top:1px solid #ddd;padding:10px;" />
+
+    `;
 
   document.body.appendChild(sidebar);
 
@@ -333,20 +398,54 @@ function openAssistant() {
     sidebar.remove();
   };
 
+  /* =========================
+       Style suggestion buttons
+    ========================= */
+
+  document.querySelectorAll(".suggestion").forEach((btn) => {
+    btn.style.marginTop = "6px";
+    btn.style.padding = "6px";
+    btn.style.background = "#f3f4f6";
+    btn.style.borderRadius = "6px";
+    btn.style.cursor = "pointer";
+  });
+
+  /* =========================
+       Make suggestions clickable
+    ========================= */
+
+  document.querySelectorAll(".suggestion").forEach((btn) => {
+    btn.onclick = () => {
+      const input = document.getElementById("ai-input");
+
+      input.value = btn.innerText;
+
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    };
+  });
+
   const input = document.getElementById("ai-input");
 
   input.addEventListener("keydown", async (e) => {
     if (e.key === "Enter") {
-      const question = input.value;
+      const question = input.value.trim();
+
+      if (!question) return;
 
       input.value = "";
 
       addMessage("You", question);
 
+      /* Hide suggestions after first interaction */
+
+      const suggestions = document.getElementById("ai-suggestions");
+      if (suggestions) suggestions.remove();
+
       const text = extractText();
 
-      // limit page text sent to AI
-      const limitedText = text.slice(0, 2000);
+      const limitedText = extractText().slice(0, 5000);
+
+      const thinking = addMessage("AI", "🧠 NeuroLens is thinking...");
 
       const res = await fetch("http://localhost:5000/api/reader/chat", {
         method: "POST",
@@ -362,10 +461,8 @@ function openAssistant() {
 
       const data = await res.json();
 
-      const thinking = addMessage("AI", "AI is thinking...");
-
       setTimeout(() => {
-        thinking.innerHTML = "<b>AI:</b> " + formatAI(data.answer);
+        thinking.innerHTML = formatAI(data.answer);
       }, 400);
     }
   });
@@ -378,17 +475,50 @@ function openAssistant() {
 function addMessage(sender, text) {
   const container = document.getElementById("ai-messages");
 
-  const div = document.createElement("div");
+  const wrapper = document.createElement("div");
 
-  div.innerHTML = "<b>" + sender + ":</b> " + text;
+  wrapper.style.display = "flex";
+  wrapper.style.marginBottom = "10px";
 
-  div.style.marginBottom = "10px";
+  const bubble = document.createElement("div");
 
-  container.appendChild(div);
+  bubble.style.maxWidth = "80%";
+  bubble.style.padding = "8px 10px";
+  bubble.style.borderRadius = "10px";
+  bubble.style.fontSize = "13px";
+  bubble.style.lineHeight = "1.5";
+  bubble.style.transition = "all 0.2s ease";
+
+  if (sender === "You") {
+    wrapper.style.justifyContent = "flex-end";
+
+    bubble.style.background = "#6366f1";
+    bubble.style.color = "white";
+
+    bubble.innerHTML = text;
+  } else {
+    wrapper.style.justifyContent = "flex-start";
+
+    bubble.style.background = "#f3f4f6";
+    bubble.style.color = "#111827";
+
+    bubble.innerHTML = formatAI(text);
+  }
+
+  bubble.style.opacity = "0";
+  bubble.style.transform = "translateY(6px)";
+
+  wrapper.appendChild(bubble);
+  container.appendChild(wrapper);
+
+  setTimeout(() => {
+    bubble.style.opacity = "1";
+    bubble.style.transform = "translateY(0)";
+  }, 10);
 
   container.scrollTop = container.scrollHeight;
 
-  return div;
+  return bubble;
 }
 
 /* ================================
@@ -419,12 +549,22 @@ function showReadingPanel(html) {
   panel.style.transition = "transform 0.3s ease";
 
   panel.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-            <b>✨ Simplified Version</b>
-            <span id="close-neurolens" style="cursor:pointer;font-size:18px;">✕</span>
-        </div>
-        ${html}
-    `;
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+
+<div style="display:flex;align-items:center;gap:8px;font-weight:bold;">
+🧠 NeuroLens AI
+</div>
+
+<div style="display:flex;gap:12px;align-items:center;">
+<span id="read-panel" style="cursor:pointer;">🔊</span>
+<span id="read-along" style="cursor:pointer;">📖</span>
+<span id="close-neurolens" style="cursor:pointer;font-size:18px;">✕</span>
+</div>
+
+</div>
+
+${html}
+`;
 
   document.body.appendChild(panel);
 
@@ -435,6 +575,9 @@ function showReadingPanel(html) {
     panel.remove();
     document.body.style.marginRight = "0";
   };
+
+  document.getElementById("read-panel").onclick = enableReadingMode;
+  document.getElementById("read-along").onclick = enableReadAlong;
 
   setTimeout(() => {
     panel.style.transform = "translateX(0)";
@@ -614,3 +757,247 @@ aiButton.style.boxShadow = "0 6px 15px rgba(0,0,0,0.2)";
 document.body.appendChild(aiButton);
 
 aiButton.onclick = openAssistant;
+
+// Adhd Mode (Bionic Reading)
+
+// ADHD Mode (Bionic Reading)
+
+function enableADHDMode() {
+  adhdMode = !adhdMode;
+
+  const elements = document.querySelectorAll("p, h1, h2, h3, h4, h5, h6, li");
+
+  elements.forEach((el) => {
+    if (!adhdMode) {
+      if (el.dataset.original) {
+        el.innerHTML = el.dataset.original;
+      }
+
+      return;
+    }
+
+    if (!el.dataset.original) {
+      el.dataset.original = el.innerHTML;
+    }
+
+    const words = el.innerText.split(" ");
+
+    const bionic = words
+      .map((word) => {
+        const mid = Math.ceil(word.length / 2);
+
+        return "<b>" + word.slice(0, mid) + "</b>" + word.slice(mid);
+      })
+      .join(" ");
+
+    el.innerHTML = bionic;
+  });
+
+  showOverlay(adhdMode ? "🧠 ADHD Mode Enabled" : "ADHD Mode Disabled");
+}
+
+// Dyslexia Mode
+
+// Dyslexia Mode
+
+function enableDyslexiaMode() {
+  dyslexiaMode = !dyslexiaMode;
+
+  if (!dyslexiaMode) {
+    document.body.style.fontFamily = "";
+    document.body.style.lineHeight = "";
+    document.body.style.letterSpacing = "";
+    document.body.style.wordSpacing = "";
+    document.body.style.backgroundColor = "";
+
+    document.body.style.maxWidth = "";
+    document.body.style.marginLeft = "";
+    document.body.style.marginRight = "";
+    document.body.style.margin = "";
+    document.body.style.width = "";
+
+    showOverlay("📖 Dyslexia Mode Disabled");
+    return;
+  }
+
+  document.body.style.fontFamily = "Arial, Helvetica, sans-serif";
+  document.body.style.lineHeight = "1.8";
+  document.body.style.letterSpacing = "0.05em";
+  document.body.style.wordSpacing = "0.15em";
+  document.body.style.backgroundColor = "#f8fafc";
+  document.body.style.padding = "20px";
+  document.body.style.maxWidth = "1100px";
+  document.body.style.marginLeft = "auto";
+  document.body.style.marginRight = "auto";
+
+  showOverlay("📖 Dyslexia Mode Enabled");
+}
+// Focus Mode
+
+// Focus Mode (Reader Style)
+
+function enableFocusMode() {
+  focusMode = !focusMode;
+
+  const existing = document.getElementById("neurolens-focus");
+
+  if (!focusMode) {
+    if (existing) existing.remove();
+    document.body.style.marginRight = "";
+    showOverlay("Focus Mode Disabled");
+    return;
+  }
+
+  let article = "";
+
+  const elements = document.querySelectorAll(
+    "article p, main p, p, h1, h2, h3",
+  );
+
+  elements.forEach((el) => {
+    if (el.innerText.length > 60) {
+      article += `<${el.tagName.toLowerCase()}>${el.innerText}</${el.tagName.toLowerCase()}>`;
+    }
+  });
+
+  const panel = document.createElement("div");
+  panel.id = "neurolens-focus";
+
+  panel.style.position = "fixed";
+  panel.style.top = "0";
+  panel.style.right = "0";
+  panel.style.width = "520px";
+  panel.style.height = "100%";
+  panel.style.background = "white";
+  panel.style.padding = "40px";
+  panel.style.overflowY = "auto";
+  panel.style.boxShadow = "-4px 0 20px rgba(0,0,0,0.2)";
+  panel.style.zIndex = "999999";
+  panel.style.fontSize = "18px";
+  panel.style.lineHeight = "1.8";
+  panel.style.fontFamily = "Georgia, serif";
+
+  panel.innerHTML = `
+        <div style="display:flex;justify-content:space-between;margin-bottom:20px;">
+            <strong>🎯 Focus Mode</strong>
+            <span id="closeFocus" style="cursor:pointer;font-size:20px;">✕</span>
+        </div>
+        ${article}
+    `;
+
+  panel.style.transform = "translateX(100%)";
+  panel.style.transition = "transform 0.3s ease";
+
+  document.body.appendChild(panel);
+
+  setTimeout(() => {
+    panel.style.transform = "translateX(0)";
+  }, 10);
+
+  document.body.style.marginRight = "520px";
+
+  document.getElementById("closeFocus").onclick = enableFocusMode;
+
+  showOverlay("🎯 Focus Mode Enabled");
+}
+
+const style = document.createElement("style");
+
+style.innerHTML = `
+.read-word{
+ padding:2px;
+ border-radius:3px;
+}
+`;
+
+document.head.appendChild(style);
+
+// Reading Mode (Text to Speech)
+
+function enableReadingMode() {
+  const panel = document.getElementById("neurolens-panel");
+  if (!panel) return;
+
+  const text = panel.innerText;
+
+  if (!speech) {
+    speech = new SpeechSynthesisUtterance(text);
+
+    const voices = speechSynthesis.getVoices();
+
+    const preferredVoices = voices.filter(
+      (v) =>
+        v.lang.includes("en") &&
+        (v.name.toLowerCase().includes("google") ||
+          v.name.toLowerCase().includes("female") ||
+          v.name.toLowerCase().includes("male")),
+    );
+
+    speech.voice = preferredVoices[0] || voices[0];
+
+    if (voices.length) {
+      speech.voice = voices.find((v) => v.lang.includes("en")) || voices[0];
+    }
+
+    speech.rate = 1;
+    speech.pitch = 1;
+    speech.volume = 1;
+  }
+
+  if (!speaking) {
+    speechSynthesis.speak(speech);
+    speaking = true;
+    showOverlay("🔊 Reading started");
+  } else {
+    speechSynthesis.pause();
+    speaking = false;
+    showOverlay("⏸ Reading paused");
+  }
+}
+
+function enableReadAlong() {
+  const panel = document.getElementById("neurolens-panel");
+  if (!panel) return;
+
+  const textNodes = panel.querySelectorAll("p, li");
+
+  let words = [];
+
+  textNodes.forEach((el) => {
+    const parts = el.innerText.split(" ");
+
+    el.innerHTML = parts
+      .map((w) => `<span class="read-word">${w}</span>`)
+      .join(" ");
+
+    words.push(...el.querySelectorAll(".read-word"));
+  });
+
+  const utter = new SpeechSynthesisUtterance(panel.innerText);
+
+  utter.onboundary = (event) => {
+    let charCount = 0;
+    let index = 0;
+
+    for (let i = 0; i < words.length; i++) {
+      charCount += words[i].innerText.length + 1;
+      if (event.charIndex <= charCount) {
+        index = i;
+        break;
+      }
+    }
+
+    words.forEach((w) => (w.style.background = ""));
+
+    if (words[index]) {
+      words[index].style.background = "#fde68a";
+
+      words[index].scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  };
+
+  speechSynthesis.speak(utter);
+}
