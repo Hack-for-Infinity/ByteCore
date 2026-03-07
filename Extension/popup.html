@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>NeuroLens</title>
+
+<style>
+
+body{
+  width:300px;
+  margin:0;
+  font-family: Arial, Helvetica, sans-serif;
+  background:#f9fafb;
+  color:#111827;
+}
+
+/* Header */
+
+.header{
+  background:#6366f1;
+  color:white;
+  padding:14px;
+  text-align:center;
+  font-size:16px;
+  font-weight:bold;
+}
+
+.subtitle{
+  font-size:12px;
+  opacity:0.9;
+}
+
+/* Sections */
+
+.section{
+  padding:14px;
+  border-bottom:1px solid #e5e7eb;
+}
+
+.section-title{
+  font-size:12px;
+  font-weight:bold;
+  color:#6b7280;
+  margin-bottom:8px;
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+}
+
+/* Buttons */
+
+button{
+  width:100%;
+  padding:8px;
+  margin-top:6px;
+  border:none;
+  border-radius:6px;
+  background:#6366f1;
+  color:white;
+  font-size:13px;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+button:hover{
+  background:#4f46e5;
+}
+
+.secondary{
+  background:#e5e7eb;
+  color:#111827;
+}
+
+.secondary:hover{
+  background:#d1d5db;
+}
+
+/* Footer */
+
+.footer{
+  padding:10px;
+  text-align:center;
+  font-size:11px;
+  color:#9ca3af;
+}
+
+/* AI animation */
+
+.loader{
+  display:inline-block;
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:#6366f1;
+  animation:pulse 1.2s infinite;
+  margin-right:6px;
+}
+
+@keyframes pulse{
+  0%{opacity:0.3;}
+  50%{opacity:1;}
+  100%{opacity:0.3;}
+}
+
+/* AI suggestion badge */
+
+.badge{
+  background:#e0e7ff;
+  padding:6px;
+  border-radius:6px;
+  font-size:11px;
+  margin-top:6px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- HEADER -->
+
+<div class="header">
+NeuroLens
+<div class="subtitle">AI Adaptive Reader</div>
+</div>
+
+
+<!-- PAGE INSIGHTS -->
+
+<div class="section">
+
+<div class="section-title">Page Insights</div>
+
+<div id="insight" style="
+background:#eef2ff;
+padding:10px;
+border-radius:6px;
+font-size:12px;
+">
+
+<span class="loader"></span>
+AI analyzing page...<br><br>
+
+Difficulty: Analyzing...<br>
+Reading Time: Calculating...
+
+<div class="badge">
+AI will suggest learning mode if the page is complex.
+</div>
+
+</div>
+
+</div>
+
+
+<!-- ADAPTIVE MODE -->
+
+<div class="section">
+
+<div class="section-title">Adaptive AI</div>
+
+<button id="adaptive">🧠 Adaptive Mode</button>
+
+</div>
+
+
+<!-- ACCESSIBILITY MODES -->
+
+<div class="section">
+
+<div class="section-title">Accessibility Modes</div>
+
+<button class="secondary" id="adhd">ADHD Mode</button>
+<button class="secondary" id="dyslexia">Dyslexia Mode</button>
+<button class="secondary" id="focus">Focus Mode</button>
+
+</div>
+
+
+<!-- AI TOOLS -->
+
+<div class="section">
+
+<div class="section-title">AI Tools</div>
+
+<button id="summarize">Summarize Page</button>
+<button id="simplify">Simplify Page</button>
+<button id="rebuild">Learning Mode</button>
+
+</div>
+
+
+<!-- AI ASSISTANT -->
+
+<div class="section">
+
+<div class="section-title">AI Assistant</div>
+
+<button id="assistant">Open AI Assistant</button>
+
+</div>
+
+
+<div class="footer">
+AI-powered accessibility for the web
+</div>
+
+
+<script src="popup.js"></script>
+
+</body>
+
+</html>
