@@ -19,6 +19,8 @@ The modern web is often cluttered with dense, complex, and unstructured informat
 - **Server (Node.js API):** An Express-based backend that processes text, manages AI prompts, and interfaces with the Google Gemini API.
 - **AI Engine (Gemini 2.5 Flash):** Generates summaries, simplifies text, and provides contextual answers based on the page content.
 - **Data Layer:** Prisma ORM for future persistence and AI response caching for performance.
+<img width="2816" height="1536" alt="System architecture" src="https://github.com/user-attachments/assets/0e1180b5-0f25-4dd4-8fad-092d974ceddd" />
+
 
 ## 🛠️ Technologies Used
 
