@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai"
    API KEYS (Rotation)
 ========================= */
 
+//TODO: Replace google gemini with local model (llama.cpp)
 const keys = [
     process.env.GEMINI_KEY_1,
     process.env.GEMINI_KEY_2,
