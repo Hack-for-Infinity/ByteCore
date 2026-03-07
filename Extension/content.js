@@ -178,3 +178,54 @@ async function summarizePage() {
     showReadingPanel(formatAI(data.summary))
 
 }
+
+/* ================================
+   SIMPLIFY PAGE
+================================ */
+
+async function simplifyPage() {
+
+    if (simplifiedCache) {
+        document.body.innerHTML = simplifiedCache
+        return
+    }
+
+    try {
+
+        const text = extractText()
+
+        const res = await fetch("http://localhost:5000/api/reader/simplify", {
+
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                text: text.slice(0, 4000) // prevent huge pages
+            })
+
+        })
+
+        const data = await res.json()
+
+        if (!data.simple) {
+            showOverlay("AI simplification unavailable.")
+            return
+        }
+
+        const formatted = formatAI(data.simple)
+
+        showReadingPanel(formatted)
+
+        simplifiedCache = formatted
+
+    } catch (error) {
+
+        console.error("Simplify error:", error)
+
+        showOverlay("AI simplify failed.")
+
+    }
+
+}
