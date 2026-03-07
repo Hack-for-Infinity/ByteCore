@@ -1,10 +1,12 @@
 import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
+import { PrismaClient } from "@prisma/client"
 
 dotenv.config()
 
 const app = express()
+const prisma = new PrismaClient()
 
 /* =========================
    MIDDLEWARE
@@ -19,6 +21,8 @@ app.use(express.json())
 
 app.get("/api/health", async (req, res) => {
     try {
+        await prisma.$queryRaw`SELECT 1`
+
         res.json({
             status: "Backend running",
             database: "Connected",
