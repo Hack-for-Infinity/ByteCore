@@ -3,6 +3,12 @@ import cors from "cors"
 import dotenv from "dotenv"
 import { PrismaClient } from "@prisma/client"
 
+/* =========================
+   ROUTE IMPORTS
+========================= */
+
+import readerRoutes from "./routes/reader.routes"
+
 dotenv.config()
 
 const app = express()
@@ -42,7 +48,7 @@ app.get("/api/health", async (req, res) => {
    API ROUTES
 ========================= */
 
-//TODO: Add API routes here
+app.use("/api/reader", readerRoutes)
 
 
 /* =========================
