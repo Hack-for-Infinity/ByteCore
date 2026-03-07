@@ -78,3 +78,45 @@ async function analyzePage() {
     showOverlay("AI analysis failed");
   }
 }
+
+/* ================================
+   SUGGESTION BANNER
+================================ */
+
+function showSuggestionBanner(level, minutes) {
+  const banner = document.createElement("div");
+
+  banner.style.position = "fixed";
+  banner.style.top = "20px";
+  banner.style.right = "20px";
+  banner.style.background = "white";
+  banner.style.padding = "16px";
+  banner.style.boxShadow = "0 5px 20px rgba(0,0,0,0.15)";
+  banner.style.borderRadius = "10px";
+  banner.style.zIndex = "999999";
+  banner.style.width = "280px";
+  banner.style.fontFamily = "Arial";
+
+  banner.innerHTML = `
+  
+  <b>AI Page Analysis</b><br><br>
+
+  Difficulty: <b>${level}</b><br>
+  Reading Time: <b>${minutes} min</b><br><br>
+
+  This page looks complex.<br><br>
+
+  <button id="learn">Learning Mode</button>
+  <button id="sum">Summarize</button>
+  <button id="simp">Simplify</button>
+  <button id="ignore">Ignore</button>
+
+  `;
+
+  document.body.appendChild(banner);
+
+  document.getElementById("learn").onclick = rebuildPage;
+  document.getElementById("sum").onclick = summarizePage;
+  document.getElementById("simp").onclick = simplifyPage;
+  document.getElementById("ignore").onclick = () => banner.remove();
+}
