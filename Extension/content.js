@@ -153,3 +153,28 @@ function showSuggestionBanner(level, minutes) {
   document.getElementById("simp").onclick = simplifyPage;
   document.getElementById("ignore").onclick = () => banner.remove();
 }
+
+/* ================================
+   SUMMARIZE PAGE
+================================ */
+
+async function summarizePage() {
+
+    const text = extractText()
+
+    const res = await fetch("http://localhost:5000/api/reader/summarize", {
+
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({ text })
+
+    })
+
+    const data = await res.json()
+
+    showReadingPanel(formatAI(data.summary))
+
+}
