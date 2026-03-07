@@ -58,7 +58,7 @@ if (isBlocked) {
    PAGE ANALYSIS
 ================================ */
 
-window.addEventListener("load", analyzePage);
+// window.addEventListener("load", analyzePage);
 
 async function analyzePage() {
   if (neurolensAnalyzed) return;
