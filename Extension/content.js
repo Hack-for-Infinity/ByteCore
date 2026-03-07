@@ -236,3 +236,47 @@ async function rebuildPage() {
 
   showReadingPanel(formatAI(data.rebuilt));
 }
+
+/* ================================
+   OVERLAY UI
+================================ */
+
+function showOverlay(text) {
+  const existing = document.getElementById("neurolens-overlay");
+  if (existing) existing.remove();
+
+  const box = document.createElement("div");
+  box.id = "neurolens-overlay";
+
+  box.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;">
+  <span>${text}</span>
+  <span id="closeOverlay" style="cursor:pointer;margin-left:10px;">✕</span>
+</div>
+`;
+
+  box.style.position = "fixed";
+  box.style.bottom = "20px";
+  box.style.right = "20px";
+  box.style.width = "320px";
+  box.style.padding = "15px";
+  box.style.background = "white";
+  box.style.boxShadow = "0 5px 20px rgba(0,0,0,0.2)";
+  box.style.borderRadius = "10px";
+  box.style.zIndex = "999999";
+  box.style.opacity = "0";
+  box.style.transform = "translateY(10px)";
+  box.style.transition = "all 0.25s ease";
+
+  document.body.appendChild(box);
+  box.querySelector("#closeOverlay").onclick = () => box.remove();
+
+  setTimeout(() => {
+    box.style.opacity = "1";
+    box.style.transform = "translateY(0)";
+  }, 10);
+
+  // auto close after 3 seconds
+  setTimeout(() => {
+    box.remove();
+  }, 3000);
+}
