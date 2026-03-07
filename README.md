@@ -1,93 +1,69 @@
-# 👋 Welcome to Hack for Infinity – Infinity 2K26!
+# 🏷️ Project Title
 
-Hey team! 🎉 Welcome to your dedicated repository for the **Infinity 2K26 Hackathon** organized by the **IEEE Computer Society OUCE Student Chapter**.
-
-This is your team's space to build, commit, and submit your project. Organizers have access to this repo and will review your **commit history** to verify the project was built during hackathon hours — so make sure you're committing regularly throughout the day!
-
-> ⏰ **The repository will be locked at 5:30 PM. No pushes will be accepted after that.**
-
----
-
-## 📅 Quick Schedule
-
-| Time | Activity |
-|------|----------|
-| 8:30 – 9:00 AM | Reporting & registration |
-| 9:00 – 10:00 AM | Opening briefing & kickoff |
-| 10:00 AM – 1:00 PM | Development session |
-| 1:00 – 2:00 PM | Lunch break & **Round 1 evaluation** |
-| 2:00 – 5:30 PM | Development session & final prep |
-| 5:30 – 6:00 PM | **Final judging & presentations** |
-
----
-
-## ✅ Things to Remember
-
-- Commit your code **frequently** throughout the day
-- AI tools (ChatGPT, Copilot, etc.) are allowed — but be ready to **explain your code** to the judges
-- Pre-built or plagiarised projects will be **disqualified**
-- Bring your laptops, chargers, and any hardware you need
-- Include a **project document** in this repo (see required sections below)
-
----
-
-## 📋 Judging Criteria
-
-Projects will be evaluated on:
-- 💡 Innovation and originality
-- 🛠️ Technical implementation
-- 🌍 Practical impact and usefulness
-- 🎨 User experience and design
-- 🗣️ Clarity of presentation and explanation
-
----
-
----
-
-# 📁 Fill This In — Your Project README
-
-> ✏️ *Replace everything below this line with your own project details*
-
----
-
-## 🏷️ Project Title
-
-*Your project name here*
+*NeuroLens*
 
 ## 👥 Team Members
 
 | Name | GitHub Username |
 |------|----------------|
-| ...  | ...             |
-| ...  | ...             |
+| Abdul Nasir  | [AbdulNasir05](https://github.com/AbdulNasir05)             |
+| Abdul Muizz  | [AbdulMuizz789](https://github.com/AbdulMuizz789)             |
 
 ## ❓ Problem Statement
 
-*What problem are you solving? Who does it affect and why does it matter?*
+The modern web is often cluttered with dense, complex, and unstructured information that can be overwhelming for neurodiverse individuals. Traditional reading experiences lack the flexibility to adapt to different cognitive needs, leading to information overload and reduced comprehension for those with ADHD or dyslexia.
 
 ## 🏗️ System Architecture / Design
 
-*Describe or diagram how your system is structured. What are the main components and how do they interact?*
+- **Client (Browser Extension):** A Manifest V3 Chrome extension that extracts page content, provides an interactive UI (sidebars, overlays, banners), and handles user actions.
+- **Server (Node.js API):** An Express-based backend that processes text, manages AI prompts, and interfaces with the Google Gemini API.
+- **AI Engine (Gemini 2.5 Flash):** Generates summaries, simplifies text, and provides contextual answers based on the page content.
+- **Data Layer:** Prisma ORM for future persistence and AI response caching for performance.
 
 ## 🛠️ Technologies Used
 
-*List the languages, frameworks, libraries, APIs, tools, etc. you used.*
+- **Frontend:** JavaScript, HTML, CSS (Chrome Extension V3)
+- **Backend:** Node.js, Express, TypeScript
+- **AI:** Google Generative AI (Gemini 2.5 Flash)
+- **Database/ORM:** Prisma
+- **Environment:** Dotenv for secure API key management
 
 ## ⭐ Key Features
 
-*What are the main features of your project?*
+- **🧠 AI Difficulty Detection:** Automatically analyzes page complexity and suggests the best reading mode.
+- **📝 Smart Summarization:** Condenses long articles into 5 essential bullet points.
+- **✨ Text Simplification:** Rewrites jargon-heavy paragraphs into clear, simple language.
+- **🎓 Learning Mode:** Rebuilds entire pages into structured guides with "Key Ideas," "Important Terms," and "Micro-learning Steps."
+- **💬 AI Reading Assistant:** A persistent sidebar to ask specific questions about the content you're reading.
+- **🔍 Instant Contextual Help:** Highlight any text to get an immediate AI-powered explanation.
+- **⏳ Reading Time Estimates:** Helps users manage their focus by knowing how long a page will take to read.
 
 ## ⚙️ How It Works
 
-*Explain how your solution works, end to end. Walk through the main flow.*
+1. The extension extracts the main text content from the active browser tab.
+2. It sends this data to the backend API, which performs an initial difficulty analysis.
+3. Users can then trigger various "Lenses" (Summary, Simplify, Rebuild) from the popup or the on-page banner.
+4. The AI processes the request using optimized system prompts tailored for neurodiverse accessibility.
+5. The results are streamed or injected back into the page via a clean, distraction-free "Reading Panel."
 
 ## 🚀 How to Run
 
-*Step-by-step instructions for running your project locally.*
-
+### 1. Backend Setup
 ```bash
-# example
-git clone <repo-url>
-cd <project-folder>
-# add your setup/run commands here
+cd Backend
+npm install
+# Create a .env file with GEMINI_KEY_1=your_api_key
+npx prisma migrate dev --name init
+npm run dev
 ```
+
+### 2. Extension Setup
+1. Open Chrome and navigate to `chrome://extensions/`.
+2. Enable **Developer mode** (toggle in the top right).
+3. Click **Load unpacked**.
+4. Select the `Extension` folder from this repository.
+
+### 3. Usage
+- Open any article or blog post.
+- Wait for the NeuroLens analysis banner or click the extension icon.
+- Select your preferred reading mode or ask the AI assistant for help.
