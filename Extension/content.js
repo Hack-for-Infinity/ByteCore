@@ -102,13 +102,11 @@ async function analyzePage() {
 ================================ */
 
 function estimateReadingTime(text) {
+  const words = text.split(/\s+/).length;
 
-    const words = text.split(/\s+/).length
+  const minutes = Math.ceil(words / 200);
 
-    const minutes = Math.ceil(words / 200)
-
-    return minutes
-
+  return minutes;
 }
 
 /* ================================
@@ -159,24 +157,20 @@ function showSuggestionBanner(level, minutes) {
 ================================ */
 
 async function summarizePage() {
+  const text = extractText();
 
-    const text = extractText()
+  const res = await fetch("http://localhost:5000/api/reader/summarize", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
 
-    const res = await fetch("http://localhost:5000/api/reader/summarize", {
+    body: JSON.stringify({ text }),
+  });
 
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
+  const data = await res.json();
 
-        body: JSON.stringify({ text })
-
-    })
-
-    const data = await res.json()
-
-    showReadingPanel(formatAI(data.summary))
-
+  showReadingPanel(formatAI(data.summary));
 }
 
 /* ================================
@@ -184,50 +178,42 @@ async function summarizePage() {
 ================================ */
 
 async function simplifyPage() {
+  if (simplifiedCache) {
+    document.body.innerHTML = simplifiedCache;
+    return;
+  }
 
-    if (simplifiedCache) {
-        document.body.innerHTML = simplifiedCache
-        return
+  try {
+    const text = extractText();
+
+    const res = await fetch("http://localhost:5000/api/reader/simplify", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify({
+        text: text.slice(0, 4000), // prevent huge pages
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!data.simple) {
+      showOverlay("AI simplification unavailable.");
+      return;
     }
 
-    try {
+    const formatted = formatAI(data.simple);
 
-        const text = extractText()
+    showReadingPanel(formatted);
 
-        const res = await fetch("http://localhost:5000/api/reader/simplify", {
+    simplifiedCache = formatted;
+  } catch (error) {
+    console.error("Simplify error:", error);
 
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-
-            body: JSON.stringify({
-                text: text.slice(0, 4000) // prevent huge pages
-            })
-
-        })
-
-        const data = await res.json()
-
-        if (!data.simple) {
-            showOverlay("AI simplification unavailable.")
-            return
-        }
-
-        const formatted = formatAI(data.simple)
-
-        showReadingPanel(formatted)
-
-        simplifiedCache = formatted
-
-    } catch (error) {
-
-        console.error("Simplify error:", error)
-
-        showOverlay("AI simplify failed.")
-
-    }
-
+    showOverlay("AI simplify failed.");
+  }
 }
 
 /* ================================
@@ -235,22 +221,18 @@ async function simplifyPage() {
 ================================ */
 
 async function rebuildPage() {
+  const text = extractText();
 
-    const text = extractText()
+  const res = await fetch("http://localhost:5000/api/reader/rebuild", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
 
-    const res = await fetch("http://localhost:5000/api/reader/rebuild", {
+    body: JSON.stringify({ text }),
+  });
 
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
+  const data = await res.json();
 
-        body: JSON.stringify({ text })
-
-    })
-
-    const data = await res.json()
-
-    showReadingPanel(formatAI(data.rebuilt))
-
+  showReadingPanel(formatAI(data.rebuilt));
 }
