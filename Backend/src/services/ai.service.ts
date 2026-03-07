@@ -1,48 +1,16 @@
-import { GoogleGenerativeAI } from "@google/generative-ai"
-
 /* =========================
-   API KEYS (Rotation)
+   LOCAL LLAMA CONFIG
 ========================= */
 
-//TODO: Replace google gemini with local model (llama.cpp)
-const keys = [
-    process.env.GEMINI_KEY_1,
-    process.env.GEMINI_KEY_2,
-    process.env.GEMINI_KEY_3,
-    process.env.GEMINI_KEY_4,
-    process.env.GEMINI_KEY_5
-].filter(Boolean)
-
-if (keys.length === 0) {
-    throw new Error("No Gemini API keys found in environment variables.")
-}
-
-let keyIndex = 0
-
-function getKey() {
-    const key = keys[keyIndex]
-    keyIndex = (keyIndex + 1) % keys.length
-    return key as string
-}
-
-/* =========================
-   GEMINI CLIENT
-========================= */
-
-const genAI = new GoogleGenerativeAI(getKey())
-
-const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
-    generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 2048
-    }
-})
+const LLAMA_URL = "http://localhost:8888/v1/chat/completions"
+const LLAMA_MODEL = "llama-3-8b" // Default model name for local server
 
 /* =========================
    SYSTEM PROMPT
 ========================= */
 
+// This prompt guides the AI to output content specifically optimized for 
+// neurodiverse readers (ADHD, Dyslexia), emphasizing structure and simplicity.
 const SYSTEM_PROMPT = `
 You are an AI accessibility assistant helping ADHD, dyslexia and neurodiverse readers.
 
@@ -69,6 +37,8 @@ Output Rules:
    REQUEST QUEUE (Rate Safety)
 ========================= */
 
+// The queue prevents overloading the local server by ensuring requests 
+// are sent one at a time.
 const queue: (() => Promise<void>)[] = []
 let running = false
 
@@ -84,20 +54,24 @@ async function processQueue() {
 
     running = false
 
-    setTimeout(processQueue, 1500) // delay between Gemini calls
+    // Small delay between processing requests for local model stability
+    setTimeout(processQueue, 500) 
 }
 
 /* =========================
    Non-Streaming Generation
 ========================= */
 
+/**
+ * Sends a prompt to the local Llama model and returns the generated text.
+ * Uses standard OpenAI-compatible JSON format.
+ */
 export const generateText = async (prompt: string): Promise<string> => {
 
-    const finalPrompt = `
-${SYSTEM_PROMPT}
-
-${prompt}
-`
+    const messages = [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt }
+    ]
 
     return new Promise((resolve, reject) => {
 
@@ -105,47 +79,32 @@ ${prompt}
 
             try {
 
-                const result = await model.generateContent(finalPrompt)
-                const response = await result.response
+                const response = await fetch(LLAMA_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        model: LLAMA_MODEL,
+                        messages: messages,
+                        temperature: 0.4,
+                        max_tokens: 2048
+                    })
+                })
 
-                resolve(response.text())
+                if (!response.ok) {
+                    throw new Error(`Local LLM error: ${response.statusText}`)
+                }
+
+                const data = await response.json()
+                const text = data.choices[0]?.message?.content || ""
+
+                resolve(text)
 
             } catch (error: any) {
 
-                if (error?.status === 429) {
-
-                    console.log("Quota hit → switching Gemini API key")
-
-                    try {
-
-                        const newGenAI = new GoogleGenerativeAI(getKey())
-
-                        const newModel = newGenAI.getGenerativeModel({
-                            model: "gemini-2.5-flash",
-                            generationConfig: {
-                                temperature: 0.4,
-                                maxOutputTokens: 2048
-                            }
-                        })
-
-                        const retry = await newModel.generateContent(finalPrompt)
-                        const retryRes = await retry.response
-
-                        resolve(retryRes.text())
-
-                    } catch (retryError) {
-
-                        console.error("Retry with new API key failed:", retryError)
-                        reject(retryError)
-
-                    }
-
-                } else {
-
-                    console.error("Gemini API Error:", error)
-                    reject(error)
-
-                }
+                console.error("Local LLM Request Failed:", error)
+                reject(error)
 
             }
 
@@ -161,27 +120,89 @@ ${prompt}
    Streaming Generation
 ========================= */
 
+/**
+ * Implementation of real-time streaming from the local Llama server.
+ * Reads the response body as a stream and parses SSE data chunks.
+ */
 export const generateTextStream = async (
     prompt: string,
     onChunk: (chunk: string) => void
-) => {
+): Promise<void> => {
 
-    const finalPrompt = `
-${SYSTEM_PROMPT}
+    const messages = [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt }
+    ]
 
-${prompt}
-`
+    return new Promise((resolve, reject) => {
 
-    const result = await model.generateContentStream(finalPrompt)
+        queue.push(async () => {
 
-    for await (const chunk of result.stream) {
+            try {
 
-        const text = chunk.text()
+                const response = await fetch(LLAMA_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        model: LLAMA_MODEL,
+                        messages: messages,
+                        temperature: 0.4,
+                        max_tokens: 2048,
+                        stream: true // Request streaming from server
+                    })
+                })
 
-        if (text) {
-            onChunk(text)
-        }
+                if (!response.ok) {
+                    throw new Error(`Local LLM Streaming error: ${response.statusText}`)
+                }
 
-    }
+                // Node.js fetch (v18+) response.body is a ReadableStream
+                const reader = (response.body as any).getReader()
+                const decoder = new TextDecoder()
+                let buffer = ""
+
+                while (true) {
+                    const { done, value } = await reader.read()
+                    if (done) break
+
+                    buffer += decoder.decode(value, { stream: true })
+
+                    // Split buffer into individual SSE lines (data: { ... })
+                    const lines = buffer.split("\n")
+                    buffer = lines.pop() || "" // Keep incomplete line in buffer
+
+                    for (const line of lines) {
+                        const trimmedLine = line.trim()
+                        if (!trimmedLine || !trimmedLine.startsWith("data: ")) continue
+
+                        const message = trimmedLine.replace(/^data: /, "")
+                        if (message === "[DONE]") continue
+
+                        try {
+                            const parsed = JSON.parse(message)
+                            const content = parsed.choices[0]?.delta?.content
+                            if (content) {
+                                onChunk(content)
+                            }
+                        } catch (e) {
+                            // Silently ignore partial/invalid JSON in chunks
+                        }
+                    }
+                }
+
+                resolve()
+
+            } catch (error: any) {
+                console.error("Local LLM Streaming Failed:", error)
+                reject(error)
+            }
+
+        })
+
+        processQueue()
+
+    })
 
 }

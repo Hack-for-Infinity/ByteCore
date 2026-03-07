@@ -249,6 +249,8 @@ async function summarizePage() {
 
     const data = await res.json();
 
+    console.log("AI response (summary):", data);
+
     showReadingPanel(`
             <h2>📄 Page Summary</h2>
             ${formatAI(data.summary)}
@@ -261,8 +263,8 @@ async function summarizePage() {
 }
 
 /* ================================
-   SIMPLIFY PAGE
-================================ */
+   SIMPLIFY PAGE (Streaming)
+========================= */
 
 async function simplifyPage() {
   if (simplifiedCache) {
@@ -270,27 +272,63 @@ async function simplifyPage() {
     return;
   }
 
-  showReadingPanel(AI_LOADING);
+  // Show the panel with a loading message
+  showReadingPanel(`
+    <div id="ai-status">🧠 AI is simplifying the text...</div>
+    <div id="ai-content" style="white-space: pre-wrap;"></div>
+  `);
+
+  const contentDiv = document.getElementById("ai-content");
+  const statusDiv = document.getElementById("ai-status");
 
   try {
     const text = extractText();
 
-    const res = await fetch("http://localhost:5000/api/reader/simplify", {
+    const res = await fetch("http://localhost:5000/api/reader/simplify/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: text.slice(0, 4000) }),
     });
 
-    const data = await res.json();
+    if (!res.ok) throw new Error("Stream failed");
 
-    if (!data.simple) {
-      showOverlay("AI simplification unavailable.");
-      return;
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split("\n");
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.replace("data: ", "").trim();
+          if (data === "[DONE]") {
+            statusDiv.style.display = "none";
+            // Final format once complete
+            contentDiv.innerHTML = formatAI(fullText);
+            simplifiedCache = fullText;
+            continue;
+          }
+
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.chunk) {
+              fullText += parsed.chunk;
+              // Show raw text during stream for speed
+              contentDiv.innerText = fullText;
+              // Scroll to bottom
+              const panel = document.getElementById("neurolens-panel");
+              panel.scrollTop = panel.scrollHeight;
+            }
+          } catch (e) { }
+        }
+      }
     }
 
-    simplifiedCache = data.simple;
-
-    showReadingPanel(formatAI(data.simple));
   } catch (error) {
     console.error("Simplify error:", error);
     showOverlay("AI simplify failed.");
@@ -314,6 +352,8 @@ async function rebuildPage() {
     });
 
     const data = await res.json();
+
+    console.log("AI response (summary):", data);
 
     if (!data.rebuilt) {
       showOverlay("AI learning mode unavailable.");
@@ -445,25 +485,61 @@ function openAssistant() {
 
       const limitedText = extractText().slice(0, 5000);
 
-      const thinking = addMessage("AI", "🧠 NeuroLens is thinking...");
+      const aiBubble = addMessage("AI", "🧠 NeuroLens is thinking...");
 
-      const res = await fetch("http://localhost:5000/api/reader/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+      try {
+        const res = await fetch("http://localhost:5000/api/reader/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
 
-        body: JSON.stringify({
-          question,
-          text: limitedText,
-        }),
-      });
+          body: JSON.stringify({
+            question,
+            text: limitedText,
+          }),
+        });
 
-      const data = await res.json();
+        if (!res.ok) throw new Error("Chat stream failed");
 
-      setTimeout(() => {
-        thinking.innerHTML = formatAI(data.answer);
-      }, 400);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let fullAnswer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.replace("data: ", "").trim();
+              if (data === "[DONE]") {
+                // Final format
+                aiBubble.innerHTML = formatAI(fullAnswer);
+                continue;
+              }
+
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.chunk) {
+                  fullAnswer += parsed.chunk;
+                  // Show raw text during stream for speed
+                  aiBubble.innerText = fullAnswer;
+                  // Scroll to bottom
+                  const container = document.getElementById("ai-messages");
+                  container.scrollTop = container.scrollHeight;
+                }
+              } catch (e) { }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Chat error:", error);
+        aiBubble.innerText = "❌ AI response failed.";
+      }
     }
   });
 }
@@ -563,7 +639,7 @@ function showReadingPanel(html) {
 
 </div>
 
-${html}
+${html || "<p>No content generated</p>"}
 `;
 
   document.body.appendChild(panel);
@@ -934,10 +1010,6 @@ function enableReadingMode() {
     );
 
     speech.voice = preferredVoices[0] || voices[0];
-
-    if (voices.length) {
-      speech.voice = voices.find((v) => v.lang.includes("en")) || voices[0];
-    }
 
     speech.rate = 1;
     speech.pitch = 1;
